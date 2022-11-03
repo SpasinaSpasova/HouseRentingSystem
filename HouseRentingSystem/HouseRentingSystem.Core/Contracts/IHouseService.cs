@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 namespace HouseRentingSystem.Core.Contracts
 {
     public interface IHouseService
-    {
+    { 
         Task<IEnumerable<HouseHomeModel>> LastThreeHouses();
     }
 }
