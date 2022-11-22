@@ -1,5 +1,6 @@
 ﻿using HomeRentingSystem.Infrastructure.Data.Entities;
 using HouseRentingSystem.Core.Contracts;
+using HouseRentingSystem.Infrastructure.Data;
 using HouseRentingSystem.Infrastructure.Data.Common;
 using Microsoft.EntityFrameworkCore;
 using System;

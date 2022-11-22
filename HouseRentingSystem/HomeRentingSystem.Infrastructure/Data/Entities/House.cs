@@ -1,17 +1,11 @@
-﻿using HouseRentingSystem.Infrastructure.Data.Entities;
+﻿using HomeRentingSystem.Infrastructure.Data.Entities;
+using HouseRentingSystem.Infrastructure.Data.Entities;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static HomeRentingSystem.Infrastructure.Data.DataConstants.House;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace HomeRentingSystem.Infrastructure.Data.Entities
+namespace HouseRentingSystem.Infrastructure.Data
 {
     public class House
     {
@@ -19,19 +13,19 @@ namespace HomeRentingSystem.Infrastructure.Data.Entities
         public int Id { get; set; }
 
         [Required]
-        [StringLength(HouseTitleMaxLength)]
+        [StringLength(50)]
         public string Title { get; set; } = null!;
 
         [Required]
-        [StringLength(HouseAddressMaxLength)]
+        [StringLength(150)]
         public string Address { get; set; } = null!;
 
         [Required]
-        [StringLength(HouseDescriptionMaxLength)]
+        [StringLength(500)]
         public string Description { get; set; } = null!;
 
         [Required]
-        [StringLength(HouseImageUrlMaxLength)]
+        [StringLength(200)]
         public string ImageUrl { get; set; } = null!;
 
         [Required]
@@ -49,11 +43,13 @@ namespace HomeRentingSystem.Infrastructure.Data.Entities
         public int AgentId { get; set; }
 
         [ForeignKey(nameof(AgentId))]
-        public Agent Agent { get; set; } = null!;
+        public Agent Agent { get; set; }
 
         public string? RenterId { get; set; }
 
         [ForeignKey(nameof(RenterId))]
         public IdentityUser? Renter { get; set; }
+
+        public bool IsActive { get; set; } = true;
     }
 }

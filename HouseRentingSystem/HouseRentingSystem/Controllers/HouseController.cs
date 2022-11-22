@@ -11,22 +11,27 @@ namespace HouseRentingSystem.Controllers
     public class HouseController : Controller
     {
         private readonly IHouseService houseService;
+
         private readonly IAgentService agentService;
-        public HouseController(IHouseService _houseService, IAgentService _agentService)
+
+        public HouseController(
+            IHouseService _houseService,
+            IAgentService _agentService)
         {
             houseService = _houseService;
             agentService = _agentService;
         }
 
+        [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> All([FromQuery] AllHousesQueryModel query)
         {
             var result = await houseService.All(
-                 query.Category,
-                 query.SearchTerm,
-                 query.Sorting,
-                 query.CurrentPage,
-                 AllHousesQueryModel.HousesPerPage);
+                query.Category,
+                query.SearchTerm,
+                query.Sorting,
+                query.CurrentPage,
+                AllHousesQueryModel.HousesPerPage);
 
             query.TotalHousesCount = result.TotalHousesCount;
             query.Categories = await houseService.AllCategoriesNames();
@@ -37,15 +42,31 @@ namespace HouseRentingSystem.Controllers
 
         public async Task<IActionResult> Mine()
         {
-            var model = new HousesQueryModel();
+            IEnumerable<HouseServiceModel> myHhouses;
+            var userId = User.Id();
 
-            return View(model);
+            if (await agentService.ExistsById(userId))
+            {
+                int agentId = await agentService.GetAgentId(userId);
+                myHhouses = await houseService.AllHousesByAgentId(agentId);
+            }
+            else
+            {
+                myHhouses = await houseService.AllHousesByUserId(userId);
+            }
+
+            return View(myHhouses);
         }
 
         [AllowAnonymous]
         public async Task<IActionResult> Details(int id)
         {
-            var model = new HouseDetailsModel();
+            if ((await houseService.Exists(id)) == false)
+            {
+                return RedirectToAction(nameof(All));
+            }
+
+            var model = await houseService.HouseDetailsById(id);
 
             return View(model);
         }
@@ -94,9 +115,32 @@ namespace HouseRentingSystem.Controllers
         }
 
         [HttpGet]
-        public IActionResult Edit(int id)
+        public async Task<IActionResult> Edit(int id)
         {
-            var model = new HouseFormModel();
+            if ((await houseService.Exists(id)) == false)
+            {
+                return RedirectToAction(nameof(All));
+            }
+
+            if ((await houseService.HasAgentWithId(id, User.Id())) == false)
+            {
+                return RedirectToPage("/Account/AccessDenied", new { area = "Identity" });
+            }
+
+            var house = await houseService.HouseDetailsById(id);
+            var categoryId = await houseService.GetHouseCategoryId(id);
+
+            var model = new HouseFormModel()
+            {
+                Id = id,
+                Address = house.Address,
+                CategoryId = categoryId,
+                Description = house.Description,
+                ImageUrl = house.ImageUrl,
+                PricePerMonth = house.PricePerMonth,
+                Title = house.Title,
+                HouseCategories = await houseService.AllCategories()
+            };
 
             return View(model);
         }
@@ -104,26 +148,126 @@ namespace HouseRentingSystem.Controllers
         [HttpPost]
         public async Task<IActionResult> Edit(int id, HouseFormModel model)
         {
-            return RedirectToAction(nameof(Details), new { id });
+            if (id != model.Id)
+            {
+                return RedirectToPage("/Account/AccessDenied", new { area = "Identity" });
+            }
+
+            if ((await houseService.Exists(model.Id)) == false)
+            {
+                ModelState.AddModelError("", "House does not exist");
+                model.HouseCategories = await houseService.AllCategories();
+
+                return View(model);
+            }
+
+            if ((await houseService.HasAgentWithId(model.Id, User.Id())) == false)
+            {
+                return RedirectToPage("/Account/AccessDenied", new { area = "Identity" });
+            }
+
+            if ((await houseService.CategoryExists(model.CategoryId)) == false)
+            {
+                ModelState.AddModelError(nameof(model.CategoryId), "Category does not exist");
+                model.HouseCategories = await houseService.AllCategories();
+
+                return View(model);
+            }
+
+            if (ModelState.IsValid == false)
+            {
+                model.HouseCategories = await houseService.AllCategories();
+
+                return View(model);
+            }
+
+            await houseService.Edit(model.Id, model);
+
+            return RedirectToAction(nameof(Details), new { model.Id });
         }
 
-        [HttpPost]
+        [HttpGet]
         public async Task<IActionResult> Delete(int id)
         {
-            return RedirectToAction(nameof(All));
+            if ((await houseService.Exists(id)) == false)
+            {
+                return RedirectToAction(nameof(All));
+            }
+
+            if ((await houseService.HasAgentWithId(id, User.Id())) == false)
+            {
+                return RedirectToPage("/Account/AccessDenied", new { area = "Identity" });
+            }
+
+            var house = await houseService.HouseDetailsById(id);
+            var model = new HouseDetailsViewModel()
+            {
+                Address = house.Address,
+                ImageUrl = house.ImageUrl,
+                Title = house.Title
+            };
+
+            return View(model);
         }
 
+
+        [HttpPost]
+        public async Task<IActionResult> Delete(int id, HouseDetailsViewModel model)
+        {
+            if ((await houseService.Exists(id)) == false)
+            {
+                return RedirectToAction(nameof(All));
+            }
+
+            if ((await houseService.HasAgentWithId(id, User.Id())) == false)
+            {
+                return RedirectToPage("/Account/AccessDenied", new { area = "Identity" });
+            }
+
+            await houseService.Delete(id);
+
+            return RedirectToAction(nameof(All));
+        }
 
         [HttpPost]
         public async Task<IActionResult> Rent(int id)
         {
+            if ((await houseService.Exists(id)) == false)
+            {
+                return RedirectToAction(nameof(All));
+            }
+
+            if (await agentService.ExistsById(User.Id()))
+            {
+                return RedirectToPage("/Account/AccessDenied", new { area = "Identity" });
+            }
+
+            if (await houseService.IsRented(id))
+            {
+                return RedirectToAction(nameof(All));
+            }
+
+            await houseService.Rent(id, User.Id());
+
             return RedirectToAction(nameof(Mine));
         }
-
 
         [HttpPost]
         public async Task<IActionResult> Leave(int id)
         {
+            if ((await houseService.Exists(id)) == false ||
+                (await houseService.IsRented(id)) == false)
+            {
+                return RedirectToAction(nameof(All));
+            }
+
+            if ((await houseService.IsRentedByUserWithId(id, User.Id())) == false)
+            {
+                return RedirectToPage("/Account/AccessDenied", new { area = "Identity" });
+            }
+
+            await houseService.Leave(id);
+
             return RedirectToAction(nameof(Mine));
         }
     }
